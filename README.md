@@ -292,10 +292,10 @@ node scripts/seo2api.js doctor
 ## 测试
 
 ```bash
-node --test test/
+node --test test/*.test.js
 ```
 
-199 项测试，覆盖规则正确性、畸形 HTML 容错、SSRF 拦截、鉴权、限流、备份恢复、目录穿越等。
+200 项测试，覆盖规则正确性、畸形 HTML 容错、SSRF 拦截、鉴权、限流、备份恢复、目录穿越等。
 
 ## 项目结构
 

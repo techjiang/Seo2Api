@@ -11,7 +11,7 @@ main:
         image: node:24
       stages:
         - name: 单元测试
-          script: node --test test/
+          script: node --test test/*.test.js
   push:
     - name: 发布
       services:
@@ -19,12 +19,8 @@ main:
       docker:
         image: node:24
       stages:
-        - name: 环境确认
-          script: |
-            node -v
-            echo "零第三方依赖，跳过 npm install"
         - name: 单元测试
-          script: node --test test/
+          script: node --test test/*.test.js
         - name: 服务冒烟
           script: |
             export SEO2API_DATA_DIR=./data-ci
@@ -53,11 +49,11 @@ $:
         image: node:24
       stages:
         - name: 单元测试
-          script: node --test test/
+          script: node --test test/*.test.js
   pull_request:
     - name: PR 校验
       docker:
         image: node:24
       stages:
         - name: 单元测试
-          script: node --test test/
+          script: node --test test/*.test.js
