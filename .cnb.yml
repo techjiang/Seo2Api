@@ -1,26 +1,63 @@
-# CNB 流水线：测试 → 构建镜像
+# Seo2Api 流水线
+# 语法与事件依据：
+#   https://docs.cnb.cool/zh/build/trigger-rule.md
+#   https://docs.cnb.cool/zh/build/grammar.md
+
+# ---- 默认分支：测试 → 冒烟 → 构建并推送镜像 ----
 main:
-  push:
-    - stages:
-        - name: install
-          script: echo "零第三方依赖，跳过 npm install"
-        - name: test
+  pull_request:
+    - name: PR 校验
+      docker:
+        image: node:24
+      stages:
+        - name: 单元测试
           script: node --test test/
-        - name: smoke
+  push:
+    - name: 发布
+      services:
+        - docker
+      docker:
+        image: node:24
+      stages:
+        - name: 环境确认
           script: |
-            SEO2API_DATA_DIR=./data-ci SEO2API_AUTH_MODE=none SEO2API_PORT=8899 node server.js &
+            node -v
+            echo "零第三方依赖，跳过 npm install"
+        - name: 单元测试
+          script: node --test test/
+        - name: 服务冒烟
+          script: |
+            export SEO2API_DATA_DIR=./data-ci
+            export SEO2API_AUTH_MODE=none
+            export SEO2API_ALLOW_PRIVATE=1
+            export SEO2API_PORT=8899
+            node server.js &
             sleep 3
             curl -fsS http://127.0.0.1:8899/health || exit 1
             curl -fsS -X POST http://127.0.0.1:8899/v1/analyze \
               -H 'content-type: application/json' \
-              -d '{"url":"example.com","fast":true}' | head -c 200
+              -d '{"url":"example.com","fast":true}' | head -c 300 || exit 1
+            curl -fsS "http://127.0.0.1:8899/badge?url=example.com" | head -c 120 || exit 1
             kill %1
-        - name: docker-build
-          image: docker.cnb.cool/asoe/techsauce/seo2api:latest
-          dockerfile: Dockerfile
+        - name: 构建并推送镜像
+          script: |
+            IMG="${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest"
+            docker build -t "$IMG" .
+            docker push "$IMG"
 
+# ---- 其它分支：push 与 PR 都只跑测试 ----
 $:
-  pr:
-    - stages:
-        - name: test
+  push:
+    - name: 分支校验
+      docker:
+        image: node:24
+      stages:
+        - name: 单元测试
+          script: node --test test/
+  pull_request:
+    - name: PR 校验
+      docker:
+        image: node:24
+      stages:
+        - name: 单元测试
           script: node --test test/
