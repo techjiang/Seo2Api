@@ -180,8 +180,18 @@ export function summarize(score, dimensions, results, priority) {
     .slice(0, 2);
 
   const lines = [];
-  if (criticals.length) {
-    lines.push(`发现 ${criticals.length} 个致命问题，会直接阻止页面被正常收录，建议立即修复：${criticals.slice(0, 3).map((r) => r.title).join('、')}。`);
+  // critical 是「严重度高」，不等于「会阻断收录」：HTTPS、viewport 这类
+  // 属于必须修但不影响爬虫索引。真正阻断收录的只有 noindex、4xx/5xx、robots 屏蔽。
+  // 之前统一说成「直接阻止页面被正常收录」，是错误结论，会误导用户判断优先级。
+  const blockingIds = new Set(['indexable', 'http-status', 'robots-allows-page']);
+  const blockers = fails.filter((r) => blockingIds.has(r.id));
+  if (blockers.length) {
+    lines.push(`发现 ${blockers.length} 个会阻断收录的问题，建议立即修复：${blockers.slice(0, 3).map((r) => r.title).join('、')}。`);
+    if (fails.length > blockers.length) {
+      lines.push(`另有 ${criticals.filter((r) => !blockingIds.has(r.id)).length} 个严重项与 ${fails.length - blockers.length - criticals.filter((r) => !blockingIds.has(r.id)).length} 个普通失败项，属于扣分但不会导致无法收录。`);
+    }
+  } else if (criticals.length) {
+    lines.push(`没有阻断收录的问题，但有 ${criticals.length} 个严重项必修：${criticals.slice(0, 3).map((r) => r.title).join('、')}。`);
   } else if (fails.length) {
     lines.push(`没有致命阻断项，但有 ${fails.length} 项明确失败，是当前分数的主要失分点。`);
   } else if (warns.length) {

@@ -22,8 +22,9 @@ export const securityRules = [
     weight: 2,
     title: 'HTTP 自动跳转到 HTTPS',
     description: '必须把 http:// 永久（301）跳转到 https://，否则存在重复内容与降级攻击风险。',
-    check: ({ page, aux }) => {
+    check: ({ page, aux, auxFetched }) => {
       if (!page.finalUrl.startsWith('https:')) return info('当前非 HTTPS，跳过跳转检测。');
+      if (auxFetched === false) return info('快速模式未检测 http 跳转，跳过检测。');
       const r = aux?.httpsRedirect;
       if (!r) return info('未能检测 http 跳转行为。');
       if (r.redirectsToHttps === true) return pass('http 已 301 跳转到 https。');
@@ -163,7 +164,8 @@ export const securityRules = [
     weight: 0.4,
     title: '提供 security.txt 漏洞报告渠道',
     description: 'security.txt 让安全研究员知道如何负责任地报告漏洞，是企业站点逐渐普及的规范。',
-    check: ({ aux }) => {
+    check: ({ aux, auxFetched }) => {
+      if (auxFetched === false) return info('快速模式未抓取 security.txt，跳过检测。');
       if (aux?.securityTxt) return pass(`security.txt 已配置：${cut(aux.securityTxt, 60)}`);
       return info('未提供 /.well-known/security.txt（可选）。');
     },

@@ -9,7 +9,8 @@ export const discoverabilityRules = [
     weight: 2.5,
     title: 'robots.txt 存在且有效',
     description: 'robots.txt 是爬虫访问的第一个文件，用于声明抓取范围与 sitemap 位置。缺失时所有路径都默认可抓。',
-    check: ({ aux }) => {
+    check: ({ aux, auxFetched }) => {
+      if (auxFetched === false) return info('快速模式未抓取 robots.txt，跳过检测。');
       if (!aux?.robots) return warn('未找到 robots.txt（或缺省返回空内容）。建议创建以声明 sitemap 与抓取规则。', { fix: snippet('User-agent: *\nAllow: /\n\nSitemap: https://example.com/sitemap.xml') });
       if (!aux.robots.exists) return warn('robots.txt 内容为空。', { fix: snippet('User-agent: *\nAllow: /\nSitemap: https://example.com/sitemap.xml') });
       return pass(`robots.txt 存在，包含 ${aux.robots.rules.length} 条规则、${aux.robots.sitemaps.length} 个 sitemap 声明。`);
@@ -42,7 +43,8 @@ export const discoverabilityRules = [
     weight: 2,
     title: 'Sitemap 可访问',
     description: 'sitemap.xml 帮助搜索引擎快速发现全站 URL，尤其是有深层目录或较少外链的站点。',
-    check: ({ aux }) => {
+    check: ({ aux, auxFetched }) => {
+      if (auxFetched === false) return info('快速模式未抓取 sitemap.xml，跳过检测。');
       if (!aux?.sitemap) {
         return warn(`未找到可访问的 sitemap（检查过 ${aux?.sitemapUrl || '/sitemap.xml'}）。`, {
           fix: snippet('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>https://example.com/</loc></url>\n</urlset>'),
@@ -61,7 +63,8 @@ export const discoverabilityRules = [
     weight: 1,
     title: '当前页面在 Sitemap 中',
     description: '确保重要页面被收录进 sitemap，能显著加快被发现的速度。',
-    check: ({ aux }) => {
+    check: ({ aux, auxFetched }) => {
+      if (auxFetched === false) return info('快速模式未抓取 sitemap，跳过检测。');
       if (!aux?.sitemap) return info('无 sitemap，跳过检测。');
       if (aux.pageInSitemap === null) return info('sitemap 为索引形式，无法直接判断。');
       if (aux.pageInSitemap) return pass('当前页面已在 sitemap 中。');

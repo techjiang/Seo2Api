@@ -18,8 +18,9 @@ import { compactReport } from './core/serialize.js';
 import { DIMENSIONS } from './rules/index.js';
 import { renderReportPage, renderHomePage, renderDocsPage, renderNotFoundPage } from './ui/pages.js';
 import { serveStatic } from './ui/static.js';
+import { APP_CSS, APP_CSS_VERSION, HOME_JS, APP_JS_VERSION } from './ui/assets.js';
 
-export const VERSION = '1.0.0';
+export const VERSION = '1.1.0';
 
 export async function createServer(overrides = {}) {
   const cfg = loadConfig(overrides);
@@ -37,18 +38,22 @@ export async function createServer(overrides = {}) {
   const router = new Router();
 
   // ---------- 健康与元信息 ----------
+  /** 页面统一的安全响应头：页面是服务端渲染的静态 HTML，内联脚本只有一个表单提交处理器 */
+  const PAGE_HEADERS = {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'public, max-age=300',
+    'content-security-policy':
+      "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; font-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
+    'referrer-policy': 'strict-origin-when-cross-origin',
+    'permissions-policy': 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+  };
+
   router.get('/', (req, res) => {
-    send(req, res, 200, renderHomePage({ cfg, version: VERSION, dimensions: DIMENSIONS }), {
-      'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'public, max-age=300',
-    });
+    send(req, res, 200, renderHomePage({ cfg, version: VERSION, dimensions: DIMENSIONS }), PAGE_HEADERS);
   });
 
   router.get('/docs', (req, res) => {
-    send(req, res, 200, renderDocsPage({ cfg, version: VERSION, dimensions: DIMENSIONS }), {
-      'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'public, max-age=300',
-    });
+    send(req, res, 200, renderDocsPage({ cfg, version: VERSION, dimensions: DIMENSIONS }), PAGE_HEADERS);
   });
 
   router.get('/health', (req, res) => {
@@ -211,12 +216,36 @@ export async function createServer(overrides = {}) {
   router.get('/report/:id', (req, res, { params }) => {
     const audit = store.getAudit(params.id);
     if (!audit) {
-      return send(req, res, 404, renderNotFoundPage({ cfg }), { 'content-type': 'text/html; charset=utf-8' });
+      return send(req, res, 404, renderNotFoundPage({ cfg, version: VERSION }), {
+        ...PAGE_HEADERS,
+        'cache-control': 'no-store',
+      });
     }
-    send(req, res, 200, renderReportPage({ report: audit.report, cfg, version: VERSION }), {
-      'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'public, max-age=300',
+    // 落库时还不知道自己的 id，读取时补回去，页面上的徽章/重检链接才指向对的目标
+    if (audit.report && !audit.report.id) {
+      audit.report.id = audit.id;
+      audit.report.reportUrl = `${cfg.publicUrl}/report/${audit.id}`;
+    }
+    send(req, res, 200, renderReportPage({ report: audit.report, cfg, version: VERSION }), PAGE_HEADERS);
+  });
+
+  // ---------- 静态资源（CSS / JS 由代码生成，跟随版本号缓存） ----------
+  const sendImmutable = (req, res, type, body, etag) => {
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, { etag, 'cache-control': 'public, max-age=31536000, immutable' });
+      return res.end();
+    }
+    send(req, res, 200, body, {
+      'content-type': type,
+      'cache-control': 'public, max-age=31536000, immutable',
+      etag,
     });
+  };
+  router.get('/assets/app.css', (req, res) => {
+    sendImmutable(req, res, 'text/css; charset=utf-8', APP_CSS, `"css-${APP_CSS_VERSION}"`);
+  });
+  router.get('/assets/app.js', (req, res) => {
+    sendImmutable(req, res, 'text/javascript; charset=utf-8', HOME_JS, `"js-${APP_JS_VERSION}"`);
   });
 
   // ---------- 静态资源 ----------
@@ -235,8 +264,13 @@ export async function createServer(overrides = {}) {
   router.get('/apple-touch-icon.png', async (req, res) => {
     await serveStatic(req, res, 'icons/apple-touch-icon.png');
   });
+  router.get('/site.webmanifest', async (req, res) => {
+    await serveStatic(req, res, 'site.webmanifest');
+  });
   router.get('/robots.txt', (req, res) => {
-    sendText(req, res, 200, `User-agent: *\nAllow: /\nDisallow: /v1/\nDisallow: /report/\n\nSitemap: ${cfg.publicUrl}/sitemap.xml\n`);
+    sendText(req, res, 200, `User-agent: *\nAllow: /\nDisallow: /v1/\nDisallow: /report/\nDisallow: /metrics\n\nSitemap: ${cfg.publicUrl}/sitemap.xml\n`, {
+      'cache-control': 'public, max-age=3600',
+    });
   });
   router.get('/llms.txt', (req, res) => {
     sendText(req, res, 200, renderLlmsTxt(cfg, VERSION), { 'content-type': 'text/markdown; charset=utf-8' });
@@ -244,10 +278,10 @@ export async function createServer(overrides = {}) {
   router.get('/sitemap.xml', (req, res) => {
     sendText(req, res, 200, `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>${cfg.publicUrl}/</loc><priority>1.0</priority></url>
-  <url><loc>${cfg.publicUrl}/docs</loc><priority>0.8</priority></url>
+  <url><loc>${cfg.publicUrl}/</loc><priority>1.0</priority><changefreq>weekly</changefreq></url>
+  <url><loc>${cfg.publicUrl}/docs</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
 </urlset>
-`, { 'content-type': 'application/xml; charset=utf-8' });
+`, { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' });
   });
 
   // ---------- 请求处理主流程 ----------
@@ -472,7 +506,7 @@ function renderLlmsTxt(cfg, version) {
 ${DIMENSIONS.map((d) => `- ${d.name}（权重 ${(d.weight * 100).toFixed(0)}%）：${d.desc}`).join('\n')}
 
 ## 技术说明
-- 运行时：Node.js ≥ 22.5，零第三方依赖
+- 运行时：Node.js ≥ 22.13，零第三方依赖
 - 存储：单文件 SQLite，备份即复制
 - 版本：${version}
 `;

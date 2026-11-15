@@ -90,7 +90,8 @@ export const socialRules = [
     weight: 1,
     title: 'Favicon 可访问',
     description: '浏览器标签页、书签、搜索结果都会展示站点图标。缺失会让站点显得不专业，也影响品牌识别。',
-    check: ({ page, aux }) => {
+    check: ({ page, aux, auxFetched }) => {
+      if (auxFetched === false) return info('快速模式未抓取 favicon，跳过检测。');
       if (aux?.faviconReachable === false) {
         return warn('favicon 无法访问（404 或超时）。', {
           fix: snippet('<link rel="icon" href="/favicon.svg" type="image/svg+xml">\n<link rel="icon" href="/favicon.ico" sizes="32x32">\n<link rel="apple-touch-icon" href="/apple-touch-icon.png">'),

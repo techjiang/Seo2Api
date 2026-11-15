@@ -8,7 +8,7 @@ import { normalizeTarget } from '../util/url.js';
 import { logger } from '../util/logger.js';
 import { DIMENSIONS } from '../rules/index.js';
 
-export const ANALYZER_VERSION = '1.0.0';
+export const ANALYZER_VERSION = '1.1.0';
 
 /**
  * 单页完整分析。
@@ -31,7 +31,9 @@ export async function analyzeUrl(inputUrl, cfg, options = {}) {
   const page = buildPageModel(fetched, { targetUrl: url });
   const aux = options.skipAux ? null : await fetchAuxiliary(page, cfg);
 
-  const ctx = { page, aux, cfg, response: fetched, url };
+  // skipAux 时 aux 为 null。规则必须能区分「没抓到」与「抓了但没有」，
+  // 否则快速模式会把每个站点都判成「未提供 robots.txt / sitemap / llms.txt」。
+  const ctx = { page, aux, cfg, response: fetched, url, auxFetched: !options.skipAux };
   const results = evaluateRules(ctx);
   const scored = overallScore(results);
   const dimensionsWithNames = Object.fromEntries(
@@ -72,6 +74,7 @@ export async function analyzeUrl(inputUrl, cfg, options = {}) {
     checks: results,
     page: summarizePage(page),
     aux: summarizeAux(aux),
+    fast: Boolean(options.skipAux),
     contentHash,
   };
 }

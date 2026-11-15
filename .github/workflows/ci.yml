@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 测试 / Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.13', '22.x', '24.x']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # 本项目零第三方依赖，所以没有 npm install 这一步
+      - name: 单元测试
+        run: node --test test/*.test.js
+
+      - name: 环境自检
+        run: node scripts/seo2api.js doctor
+
+  smoke:
+    name: 冒烟测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+
+      - name: 冷启动并调用真实接口
+        run: |
+          set -euo pipefail
+          export SEO2API_DATA_DIR=./data-ci
+          export SEO2API_AUTH_MODE=none
+          export SEO2API_PORT=8899
+          export SEO2API_PUBLIC_URL=http://127.0.0.1:8899
+          node server.js &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8899/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+
+          curl -fsS http://127.0.0.1:8899/health
+          curl -fsS http://127.0.0.1:8899/ >/dev/null
+          curl -fsS http://127.0.0.1:8899/docs >/dev/null
+          curl -fsS http://127.0.0.1:8899/llms.txt >/dev/null
+          curl -fsS http://127.0.0.1:8899/robots.txt >/dev/null
+          curl -fsS http://127.0.0.1:8899/site.webmanifest >/dev/null
+          curl -fsS http://127.0.0.1:8899/assets/app.css >/dev/null
+          curl -fsS -X POST http://127.0.0.1:8899/v1/analyze \
+            -H 'content-type: application/json' \
+            -d '{"url":"example.com","compact":true}' | head -c 200
+          curl -fsS "http://127.0.0.1:8899/badge?url=example.com" | head -c 80
+
+      - name: 备份与恢复
+        run: |
+          set -euo pipefail
+          export SEO2API_DATA_DIR=./data-ci
+          node scripts/seo2api.js backup
+          node scripts/seo2api.js list

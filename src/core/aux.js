@@ -149,15 +149,32 @@ export async function fetchAuxiliary(page, cfg) {
     }
     return `${origin}/sitemap.xml`;
   })().then(async (sitemapUrl) => {
-    const sm = await safeFetch(sitemapUrl, cfg, { maxBytes: 2 * 1024 * 1024, timeoutMs: 9000 });
-    if (sm.ok && (!sm.contentType || /xml|text|plain|octet/i.test(sm.contentType))) {
+    const tryFetch = async (target) => {
+      const sm = await safeFetch(target, cfg, { maxBytes: 2 * 1024 * 1024, timeoutMs: 9000 });
+      const usable = sm.ok && (!sm.contentType || /xml|text|plain|octet/i.test(sm.contentType));
+      return { sm, usable };
+    };
+    let target = sitemapUrl;
+    let { sm, usable } = await tryFetch(target);
+    // robots.txt 里声明的 Sitemap 常写成对外域名（https://...），
+    // 当站点还没启用 HTTPS 或部署在别的端口时，那一跳会失败。
+    // 这时回退到当前页面的 origin，避免把「配置里的域名和访问地址不一致」误报成「没有 sitemap」。
+    if (!usable) {
+      const fallback = `${origin}/sitemap.xml`;
+      if (fallback !== target) {
+        const retry = await tryFetch(fallback);
+        if (retry.usable) ({ sm, usable } = retry), target = fallback;
+      }
+    }
+    if (usable) {
       const parsed = parseSitemap(sm.html);
       out.sitemap = parsed;
-      out.sitemapUrl = sitemapUrl;
+      out.sitemapUrl = target;
       out.sitemapUrlCount = parsed.entries.length;
       out.pageInSitemap = parsed.isIndex ? null : parsed.entries.some((u) => normalize(u) === normalize(page.finalUrl));
     } else {
       out.sitemapStatus = sm.status || sm.error?.code || 'error';
+      out.sitemapUrl = target;
     }
   });
 

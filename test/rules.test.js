@@ -178,3 +178,89 @@ test('规则检查在真实页面上的正误', async (t) => {
     assert.equal(r.status, 'warn');
   });
 });
+
+/**
+ * 回归：这几条规则曾经在自己身上误报。
+ * 误报比不报更糟——用户会照着错误结论去改本来正确的东西。
+ */
+test('规则误报回归', async (t) => {
+  await t.test('JSON-LD 不算阻塞渲染脚本', () => {
+    const html = `<html lang="zh-CN"><head><title>结构化数据不阻塞解析的验证页面标题</title>
+<meta name="description" content="这条用例确认 application/ld+json 不会被算作阻塞渲染的脚本，因为它不是可执行脚本。">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"x"}</script>
+</head><body><h1>标题</h1></body></html>`;
+    const r = evaluateRules(buildCtx(html)).find((x) => x.id === 'render-blocking');
+    assert.equal(r.status, 'pass', r.message);
+  });
+
+  await t.test('内联可执行脚本仍算阻塞', () => {
+    const html = `<html lang="zh-CN"><head><title>内联脚本依然阻塞解析的验证页面标题</title></head>
+<body><h1>标题</h1><script>console.log(1)</script></body></html>`;
+    const r = evaluateRules(buildCtx(html)).find((x) => x.id === 'render-blocking');
+    assert.equal(r.status, 'warn');
+  });
+
+  await t.test('中文正文比例按字节计算，不因 UTF-8 三字节被压低', () => {
+    const para = '这是一段中文说明文字，用来验证文本占比的计算方式。'.repeat(40);
+    const html = `<html lang="zh-CN"><head><title>中文页面的文本占比计算方式验证标题</title></head><body><h1>标题</h1><p>${para}</p></body></html>`;
+    const r = evaluateRules(buildCtx(html)).find((x) => x.id === 'text-html-ratio');
+    assert.equal(r.status, 'pass', r.message);
+  });
+
+  await t.test('中文 Title 的主题词不会被拆成大量重叠片段', () => {
+    const body = '<h1>网站 SEO 检测</h1><p>提交网址后返回检测报告与评分，覆盖内容、技术、性能等维度。</p>'.repeat(6);
+    const html = `<html lang="zh-CN"><head><title>网站 SEO 检测与评分 API</title>
+<meta name="description" content="提交网址后返回检测报告与评分，覆盖内容、技术、性能等维度。">
+</head><body>${body}</body></html>`;
+    const r = evaluateRules(buildCtx(html)).find((x) => x.id === 'keyword-focus');
+    assert.notEqual(r.status, 'fail', r.message);
+  });
+
+  await t.test('中文小标题按字数判定，不套用英文词数门槛', () => {
+    const html = `<html lang="zh-CN"><head><title>中文小标题信息量判定的验证页面标题</title></head><body>
+<h1>标题</h1><h2>快速开始</h2><h2>接口一览</h2><h2>错误码表</h2><h2>评分维度</h2></body></html>`;
+    const r = evaluateRules(buildCtx(html)).find((x) => x.id === 'heading-as-question-density');
+    assert.equal(r.status, 'pass', r.message);
+  });
+
+  await t.test('无第三方资源时不要求 preconnect', () => {
+    const html = `<html lang="zh-CN"><head><title>没有引用第三方资源的页面标题文本</title></head>
+<body><h1>标题</h1><a href="https://example.org/x">外链不算资源</a></body></html>`;
+    const ctx = buildCtx(html);
+    const r = evaluateRules(ctx).find((x) => x.id === 'preconnect-hints');
+    assert.equal(r.status, 'pass', r.message);
+  });
+});
+
+test('快速模式不把「未抓取」当「不存在」', async (t) => {
+  const ids = ['robots-txt', 'sitemap', 'page-in-sitemap', 'llms-txt', 'favicon'];
+  const html = bestPageHtml('https://good.example');
+  const fetched = { html, status: 200, finalUrl: 'https://good.example/', headers: { 'content-type': 'text/html; charset=utf-8' }, contentType: 'text/html; charset=utf-8', charset: 'utf-8', elapsedMs: 100, redirects: [] };
+  const page = buildPageModel(fetched, { targetUrl: 'https://good.example/' });
+
+  const fast = evaluateRules({ page, aux: null, auxFetched: false, cfg: {}, url: 'https://good.example/' });
+  for (const id of ids) {
+    const r = fast.find((x) => x.id === id);
+    assert.ok(['info', 'skip', 'pass'].includes(r.status), `${id} 在快速模式下应为 info/skip/pass，实际 ${r.status}：${r.message}`);
+  }
+
+  // 完整模式下「真的没抓到」仍然要提示
+  const full = evaluateRules({ page, aux: null, auxFetched: true, cfg: {}, url: 'https://good.example/' });
+  assert.equal(full.find((x) => x.id === 'robots-txt').status, 'warn');
+  assert.equal(full.find((x) => x.id === 'sitemap').status, 'warn');
+});
+
+test('摘要不把严重项说成阻断收录', async (t) => {
+  const { summarize } = await import('../src/core/score.js');
+  const dims = { security: { key: 'security', name: '安全性', score: 50, weight: 0.05, checked: 10, counts: {} } };
+  const results = [
+    { id: 'https', dimension: 'security', severity: 'critical', weight: 3, title: '使用 HTTPS 加密传输', status: 'fail', message: 'HTTP' },
+  ];
+  const s = summarize(60, dims, results, []);
+  assert.ok(s.lines[0].startsWith('没有阻断收录'), `不应声称阻断收录：${s.lines[0]}`);
+  assert.ok(s.lines[0].includes('HTTPS'), s.lines[0]);
+
+  // 真正阻断收录的项才这么描述
+  const s2 = summarize(20, dims, [{ id: 'indexable', dimension: 'technical', severity: 'critical', weight: 4, title: '页面允许被索引', status: 'fail', message: 'noindex' }], []);
+  assert.ok(s2.lines[0].includes('阻断收录'), s2.lines[0]);
+});

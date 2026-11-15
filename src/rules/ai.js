@@ -20,7 +20,8 @@ export const aiReadinessRules = [
     weight: 2,
     title: '提供 llms.txt 站点索引',
     description: 'llms.txt 是给大模型看的站点地图：用 Markdown 列出站点结构、关键页面与简短说明，让 AI 无需爬全站就能理解你的内容。这是新兴但增长极快的标准。',
-    check: ({ aux }) => {
+    check: ({ aux, auxFetched }) => {
+      if (auxFetched === false) return info('快速模式未抓取 llms.txt，跳过检测。');
       if (aux?.llmsTxt) {
         const t = aux.llmsTxt;
         if (!t.title) return warn('llms.txt 存在但缺少 # 一级标题。', { fix: snippet('# 站点名称\n> 一句话说明站点提供什么价值\n\n## 核心页面\n- [产品](https://example.com/product): 说明') });
@@ -141,7 +142,14 @@ export const aiReadinessRules = [
     check: ({ page }) => {
       const subs = page.headings.filter((h) => h.level >= 2);
       if (subs.length < 3) return info('小标题过少，跳过检测。');
-      const weak = subs.filter((h) => [...h.text].length < 6 || /^(功能[\u4e00-\u9fff]?|详情|更多|其他|简介|说明|overview|details|more|other)[\d\s]*$/i.test(h.text));
+      // 阈值按语言区分：中文 4 字已经能讲清事（「快速开始」），
+      // 套用英文的 6 字符门槛会把正常中文标题全判成信息量不足。
+      const weak = subs.filter((h) => {
+        const text = h.text.trim();
+        const cjkOnly = /^[\u3400-\u4dbf\u4e00-\u9fff\s]+$/.test(text);
+        const tooShort = cjkOnly ? [...text].length < 3 : text.split(/\s+/).filter(Boolean).length < 2 && text.length < 6;
+        return tooShort || /^(功能[\u4e00-\u9fff]?|详情|更多|其他|简介|说明|overview|details|more|other)[\d\s]*$/i.test(text);
+      });
       if (weak.length / subs.length > 0.3) {
         return warn(`${weak.length}/${subs.length} 个小标题信息量不足（如「${cut(weak[0].text, 20)}」），建议写清具体内容。`);
       }

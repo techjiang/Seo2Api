@@ -139,7 +139,7 @@ export const performanceRules = [
     title: '第三方域名使用资源提示',
     description: '对关键第三方域名（CDN、字体、统计）使用 preconnect / dns-prefetch，可省下 100–300ms 的握手时间。',
     check: ({ page }) => {
-      const hosts = page.stats.externalHosts.filter((h) => h !== new URL(page.finalUrl).hostname);
+      const hosts = page.stats.resourceHosts || [];
       const hints = page.resourceHints;
       const total = hints.preconnect + hints.dnsPrefetch;
       if (hosts.length === 0) return pass('未引用第三方域名，无需资源提示。');

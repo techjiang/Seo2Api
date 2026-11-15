@@ -24,12 +24,32 @@ function pickEncoding(req) {
 export function send(req, res, status, body, headers = {}) {
   if (res.writableEnded) return;
   const payload = body === undefined || body === null ? '' : body;
-  res.writeHead(status, {
+  const merged = {
     'content-type': 'text/plain; charset=utf-8',
     'x-content-type-options': 'nosniff',
     ...headers,
-  });
-  res.end(payload);
+  };
+
+  // 页面是每次请求现渲染的，不压缩的话首屏 HTML 会带着 30KB+ 的 CSS/JS 一起下载
+  const type = String(merged['content-type'] || '');
+  const raw = Buffer.isBuffer(payload) ? payload : Buffer.from(String(payload), 'utf8');
+  const enc = COMPRESSIBLE.test(type) ? pickEncoding(req) : null;
+  if (enc && raw.length >= MIN_COMPRESS) {
+    try {
+      const packed = enc === 'br'
+        ? zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 5 } })
+        : enc === 'gzip' ? zlib.gzipSync(raw, { level: 6 }) : zlib.deflateSync(raw);
+      merged['content-encoding'] = enc;
+      merged.vary = 'accept-encoding';
+      merged['content-length'] = String(packed.length);
+      res.writeHead(status, merged);
+      return res.end(packed);
+    } catch {
+      // 压缩失败就发原文，不影响正确性
+    }
+  }
+  res.writeHead(status, merged);
+  res.end(raw);
 }
 
 export function sendJson(req, res, status, data, headers = {}) {

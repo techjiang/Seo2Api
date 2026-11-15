@@ -362,3 +362,166 @@ test('HTTP API 集成', async (t) => {
     assert.ok(text.includes('seo2api_http_requests_total'));
   });
 });
+
+/**
+ * 站点自身也要是一份合格的 SEO 输出。
+ * 一个号称检测 SEO 的服务，自己的页面缺 canonical、缺 og:url、
+ * 不压缩、没有跳转链接，是最好笑的 bug。
+ */
+test('站点自身可被审计通过', async (t) => {
+  // 需要抓本机 fixture，所以放开内网限制；其它行为与生产一致
+  const srv = await startTestServer({ security: { blockPrivateNetworks: false, allowHosts: [], denyHosts: [] } });
+  t.after(() => srv.stop());
+
+  const pagePaths = ['/', '/docs'];
+
+  await t.test('页面带 canonical / og:url / 结构化数据', async () => {
+    for (const p of pagePaths) {
+      const html = await (await fetch(srv.url(p))).text();
+      assert.ok(html.includes('<link rel="canonical"'), `${p} 缺 canonical`);
+      assert.ok(html.includes('og:url'), `${p} 缺 og:url`);
+      assert.ok(html.includes('og:image:width'), `${p} 缺分享图尺寸`);
+      assert.ok(html.includes('"@type":"Organization"'), `${p} 缺 Organization 实体`);
+      assert.ok(html.includes('"@type":"BreadcrumbList"'), `${p} 缺面包屑结构化数据`);
+      assert.ok(html.includes('class="skip-link"'), `${p} 缺跳到主内容链接`);
+      assert.ok(html.includes('rel="manifest"'), `${p} 缺 webmanifest`);
+    }
+  });
+
+  await t.test('样式与脚本外置且可缓存', async () => {
+    const html = await (await fetch(srv.url('/'))).text();
+    assert.ok(!html.includes('<style'), '页面不应再内联 <style>');
+    assert.ok(/\/assets\/app\.css\?v=[0-9a-f]+/.test(html), '应引用带版本号的 CSS');
+    assert.ok(/\/assets\/app\.js\?v=[0-9a-f]+/.test(html), '应引用带版本号的 JS');
+
+    for (const p of ['/assets/app.css', '/assets/app.js']) {
+      const res = await fetch(srv.url(p));
+      assert.equal(res.status, 200, p);
+      assert.match(res.headers.get('cache-control'), /immutable/);
+      const etag = res.headers.get('etag');
+      assert.ok(etag, `${p} 应带 etag`);
+      const again = await fetch(srv.url(p), { headers: { 'if-none-match': etag } });
+      assert.equal(again.status, 304, `${p} 应支持条件请求`);
+    }
+  });
+
+  await t.test('页面带 CSP 且不放开 unsafe-inline 脚本', async () => {
+    const res = await fetch(srv.url('/'));
+    const csp = res.headers.get('content-security-policy') || '';
+    assert.ok(csp.includes("script-src 'self'"), csp);
+    assert.ok(!/script-src[^;]*unsafe-inline/.test(csp), '脚本已外置，不应再允许 unsafe-inline');
+    assert.ok(csp.includes("frame-ancestors 'self'"));
+    assert.ok(res.headers.get('permissions-policy'));
+  });
+
+  await t.test('HTML 响应被压缩', async () => {
+    const res = await fetch(srv.url('/'), { headers: { 'accept-encoding': 'br, gzip' } });
+    const body = await res.text();
+    assert.ok(['br', 'gzip'].includes(res.headers.get('content-encoding')), 'HTML 应压缩');
+    assert.ok(body.includes('</html>'));
+  });
+
+  await t.test('webmanifest 可访问', async () => {
+    const res = await fetch(srv.url('/site.webmanifest'));
+    assert.equal(res.status, 200);
+    const json = await res.json();
+    assert.equal(json.short_name, 'Seo2Api');
+    assert.ok(json.icons.length >= 2);
+  });
+
+  await t.test('报告页 noindex，不进索引预算', async () => {
+    const fixture = await startOwnAuditTarget();
+    try {
+      const r = await jsonRequest(srv.url('/v1/analyze'), { method: 'POST', body: { url: fixture.base } });
+      const html = await (await fetch(srv.url(`/report/${r.json.data.id}`))).text();
+      assert.ok(html.includes('noindex'), '报告页应标 noindex');
+      assert.ok(html.includes('BreadcrumbList'));
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  await t.test('404 页面也完整渲染', async () => {
+    const res = await fetch(srv.url('/report/does-not-exist'));
+    assert.equal(res.status, 404);
+    const html = await res.text();
+    assert.ok(html.includes('404'));
+    assert.ok(html.includes('noindex'));
+    assert.ok(html.includes('</html>'));
+  });
+
+  await t.test('首页可被自己检测并拿到 A 级以上', async () => {
+    const fixture = await startOwnAuditTarget();
+    try {
+      const r = await jsonRequest(srv.url('/v1/analyze'), {
+        method: 'POST',
+        body: { url: fixture.base, fast: true },
+      });
+      const data = r.json.data;
+      const byId = Object.fromEntries(data.checks.map((c) => [c.id, c]));
+      // 这些是纯服务端可控项，不该再失败
+      for (const id of ['canonical', 'og-basic', 'og-image', 'skip-link', 'schema-recommended', 'render-blocking']) {
+        assert.ok(['pass', 'warn'].includes(byId[id].status), `${id} → ${byId[id].status}: ${byId[id].message}`);
+      }
+    } finally {
+      await fixture.close();
+    }
+  });
+});
+
+/** 起一个把测试服务器首页当成"外部站点"的代理，用来检测测试服务器自己 */
+async function startOwnAuditTarget() {
+  const site = http.createServer(async (req, res) => {
+    if (req.url === '/robots.txt') {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      return res.end('User-agent: *\nAllow: /\n');
+    }
+    if (req.url === '/sitemap.xml') {
+      res.writeHead(200, { 'content-type': 'application/xml' });
+      return res.end('<?xml version="1.0"?><urlset><url><loc>http://127.0.0.1/</loc></url></urlset>');
+    }
+    if (req.url === '/llms.txt') {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      return res.end('# Fixture\n> A test site\n\n## Pages\n- [Home](http://127.0.0.1/)\n');
+    }
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(bestPageHtml(`http://127.0.0.1:${site.address().port}`));
+  });
+  await new Promise((r) => site.listen(0, '127.0.0.1', r));
+  return { site, base: `http://127.0.0.1:${site.address().port}`, close: () => new Promise((r) => site.close(r)) };
+}
+
+test('辅助资源抓取的回退策略', async (t) => {
+  // robots.txt 里声明的 Sitemap 常常是对外域名（https 或别的主机），
+  // 本地/内网部署时那一跳会失败。此时应回退到当前 origin，而不是报「没有 sitemap」。
+  const site = http.createServer((req, res) => {
+    if (req.url === '/robots.txt') {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      return res.end('User-agent: *\nAllow: /\nSitemap: https://unreachable.invalid/sitemap.xml\n');
+    }
+    if (req.url === '/sitemap.xml') {
+      res.writeHead(200, { 'content-type': 'application/xml' });
+      return res.end('<?xml version="1.0"?><urlset><url><loc>PLACEHOLDER</loc></url></urlset>');
+    }
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(bestPageHtml(`http://127.0.0.1:${site.address().port}`));
+  });
+  await new Promise((r) => site.listen(0, '127.0.0.1', r));
+  const base = `http://127.0.0.1:${site.address().port}`;
+
+  const srv = await startTestServer({
+    security: { blockPrivateNetworks: false, allowHosts: [], denyHosts: [] },
+    fetch: { fetchAuxiliary: true, timeoutMs: 4000 },
+  });
+  t.after(async () => {
+    await srv.stop();
+    await new Promise((r) => site.close(r));
+  });
+
+  const r = await jsonRequest(srv.url('/v1/analyze'), { method: 'POST', body: { url: base, fast: false } });
+  assert.equal(r.status, 200);
+  assert.ok(r.json.data.aux.sitemap, '应回退到 origin 的 sitemap');
+  assert.ok(r.json.data.aux.sitemap.url.endsWith(`${new URL(base).port}/sitemap.xml`), r.json.data.aux.sitemap.url);
+  const check = r.json.data.checks.find((c) => c.id === 'sitemap');
+  assert.equal(check.status, 'pass', check.message);
+});

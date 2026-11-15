@@ -199,7 +199,7 @@ export const contentRules = [
       const tokens = tokenize(page.title);
       if (!tokens.length) return info('Title 无法拆分出有效关键词（可能是纯符号）。');
       const body = `${page.description} ${page.text}`.toLowerCase();
-      const hit = tokens.filter((t) => body.includes(t));
+      const hit = tokens.filter((t) => tokenInBody(t, body));
       const rate = hit.length / tokens.length;
       if (rate === 0) {
         return fail(`Title 关键词 [${tokens.slice(0, 3).join('、')}] 在正文中完全未出现，主题不一致。`);
@@ -260,21 +260,38 @@ export const contentRules = [
 ];
 
 /** 拆关键词：英文按词，中文取 2-4 字片段 */
+/**
+ * 把 Title 拆成「主题词」。
+ *
+ * 中文按连续片段整体取词，而不是所有滑窗子串——之前对一个 5 字片段会生成
+ * 十几个互相重叠的 bigram，只要正文没有原样复现每一个片段就被判定为不聚焦，
+ * 这在自己身上都能稳定复现误报。
+ */
 function tokenize(title) {
   const lower = title.toLowerCase();
   const out = new Set();
   const latin = lower.replace(/[^\p{L}\p{N}\s'’-]/gu, ' ').split(/\s+/);
   for (const w of latin) {
-    if (w.length >= 3 && !/^\d+$/.test(w)) out.add(w);
+    if (w.length >= 3 && !/^\d+$/.test(w) && !/^[\u3400-\u4dbf\u4e00-\u9fff]+$/.test(w)) out.add(w);
   }
   const cjkRuns = lower.match(/[\u3400-\u4dbf\u4e00-\u9fff]{2,}/g) || [];
   for (const run of cjkRuns) {
-    for (let size = Math.min(4, run.length); size >= 2; size--) {
-      for (let i = 0; i + size <= run.length; i++) {
-        out.add(run.slice(i, i + size));
-        if (out.size > 30) return [...out];
-      }
+    // 长片段再切一刀，避免「检测与评分」这种连写整段当成一个不可分词组
+    if (run.length <= 6) out.add(run);
+    else {
+      out.add(run.slice(0, 4));
+      out.add(run.slice(-4));
     }
   }
   return [...out].slice(0, 30);
+}
+
+/** 主题词是否落在正文里：整词命中，或该词的主要 2-gram 命中（中文同义改写很常见） */
+function tokenInBody(token, body) {
+  if (body.includes(token)) return true;
+  if (!/[\u3400-\u4dbf\u4e00-\u9fff]/.test(token) || token.length < 4) return false;
+  const grams = [];
+  for (let i = 0; i + 2 <= token.length; i++) grams.push(token.slice(i, i + 2));
+  if (!grams.length) return false;
+  return grams.filter((g) => body.includes(g)).length / grams.length >= 0.5;
 }

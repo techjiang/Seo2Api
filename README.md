@@ -8,9 +8,10 @@
 
 8 个维度 · 84 项检查 · 0 第三方依赖 · 1 个数据文件
 
-[![Node](https://img.shields.io/badge/Node.js-%E2%89%A522.5-22d3a5)](https://nodejs.org)
+[![Node](https://img.shields.io/badge/Node.js-%E2%89%A522.13-22d3a5)](https://nodejs.org)
 [![deps](https://img.shields.io/badge/dependencies-0-22d3a5)](package.json)
 [![license](https://img.shields.io/badge/license-MIT-22d3a5)](LICENSE)
+[![version](https://img.shields.io/badge/version-1.1.0-22d3a5)](CHANGELOG.md)
 
 </div>
 
@@ -29,10 +30,10 @@ node server.js
 
 ## 快速开始
 
-**要求**：Node.js ≥ 22.5（需要内置 `node:sqlite`）。不需要 npm install，因为没有依赖。
+**要求**：Node.js ≥ 22.13（`node:sqlite` 从这个版本起默认可用）。不需要 npm install，因为没有依赖。
 
 ```bash
-git clone <repo> seo2api && cd seo2api
+git clone https://github.com/techjiang/Seo2Api.git seo2api && cd seo2api
 
 # 1. 写一份配置（可选，不写就用默认值）
 node server.js --write-config
@@ -295,7 +296,7 @@ node scripts/seo2api.js doctor
 node --test test/*.test.js
 ```
 
-200 项测试，覆盖规则正确性、畸形 HTML 容错、SSRF 拦截、鉴权、限流、备份恢复、目录穿越等。
+217 项测试，覆盖规则正确性、误报回归、畸形 HTML 容错、SSRF 拦截、鉴权、限流、备份恢复、目录穿越、以及「站点自己能不能通过自己的审计」。
 
 ## 项目结构
 
@@ -320,9 +321,28 @@ src/
   ui/                  首页、文档、报告页（服务端渲染）
 public/                logo、favicon、OG 图
 scripts/seo2api.js     运维 CLI
-test/                  199 项测试
+test/                  217 项测试
 ```
+
+## 更新日志
+
+见 [CHANGELOG.md](CHANGELOG.md)。当前版本 1.1.0，主要变化是修掉四条会误报的检测规则、
+补齐服务自身页面的 SEO 元信息、把内联 CSS/JS 改为可缓存的静态资源。
+
+## 作者
+
+**科技酱**
+
+- 主站：<https://www.asoe.cn>
+- 技术文档：<https://docs.asoe.cn>
+- GitHub：<https://github.com/techjiang/>
+- 哔哩哔哩：<https://space.bilibili.com/1768832152>
+- 邮箱：<official@tech.asoe.cn>
+- 玲珑论坛：<https://forums.asoe.cn/>
+- QQ 群：291974598 / 474819022 / 631167288
+
+问题与建议请提到 <https://github.com/techjiang/Seo2Api/issues>。
 
 ## 许可
 
-MIT
+MIT © 科技酱

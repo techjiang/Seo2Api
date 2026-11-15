@@ -3,7 +3,8 @@ export const HOME_CSS = `
 .hero-badge{display:inline-block;font-size:12px;font-weight:600;color:var(--brand);
   background:rgba(34,211,165,.09);border:1px solid rgba(34,211,165,.26);
   padding:4px 11px;border-radius:999px;margin-bottom:16px;letter-spacing:.02em}
-.hero h1{font-size:38px;max-width:16ch}
+.hero h1{font-size:38px;line-height:1.22}
+.hero h1 .h1-sub{color:var(--muted);font-size:30px}
 .analyze{margin:26px 0 8px}
 .input-row{display:flex;gap:10px;flex-wrap:wrap}
 .input-row input{flex:1 1 320px;padding:14px 16px;font-size:15px}
@@ -43,6 +44,7 @@ export const HOME_CSS = `
 .ep-label{font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-top:12px}
 @media(max-width:640px){
   .hero h1{font-size:27px}
+  .hero h1 .h1-sub{font-size:22px}
   .dim-row{grid-template-columns:1fr auto;gap:6px}
   .dim-bar,.dim-desc{grid-column:1/-1}
   .dim-w{text-align:right}

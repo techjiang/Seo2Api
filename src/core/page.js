@@ -163,6 +163,7 @@ export function buildPageModel(fetched, { targetUrl } = {}) {
   const text = doc.visibleText();
   const wordCount = countWords(text);
   const htmlBytes = Buffer.byteLength(html, 'utf8');
+  const textBytes = Buffer.byteLength(text, 'utf8');
 
   const og = {};
   const twitter = {};
@@ -246,7 +247,16 @@ export function buildPageModel(fetched, { targetUrl } = {}) {
 
   const scriptBytes = scripts.reduce((a, s) => a + (s.src ? 0 : Buffer.byteLength(s.text, 'utf8')), 0);
   const cssBytes = inlineStyleBlocks.reduce((a, n) => a + Buffer.byteLength(n.text, 'utf8'), 0);
-  const blockingScripts = scripts.filter((s) => !s.async && !s.defer && !s.module && ((s.src && /^https?:/.test(s.src)) || s.text.trim()));
+  // 阻塞解析的脚本：外链且没有 async/defer，或内联但内容不只是 JSON 数据。
+  // JSON-LD（type=application/ld+json）不是可执行脚本，浏览器不会为它阻塞解析，
+  // 之前把它算进阻塞列表，导致「加了结构化数据反而被扣性能分」的荒谬结果。
+  const EXECUTABLE = /^(|text\/javascript|module|application\/javascript)$/i;
+  const blockingScripts = scripts.filter((s) => {
+    if (s.async || s.defer || s.module) return false;
+    if (!EXECUTABLE.test(s.type)) return false;
+    if (s.src) return /^https?:/.test(s.src);
+    return Boolean(s.text.trim());
+  });
   const fontFaces = inlineStyleBlocks.map((n) => n.text).join('\n');
   const fontDisplayMissing = /@font-face/.test(fontFaces) && !/font-display\s*:\s*(swap|optional|fallback)/i.test(fontFaces);
 
@@ -315,9 +325,12 @@ export function buildPageModel(fetched, { targetUrl } = {}) {
     fontDisplayMissing,
     text,
     textLength: text.length,
+    textBytes,
     wordCount,
     sentenceCount: countSentences(text),
-    textHtmlRatio: htmlBytes ? text.length / htmlBytes : 0,
+    // 两边都按字节算。之前用「字符数 / 字节数」，中文一个字占 3 字节，
+    // 中文站点的比值会被硬压到三分之一，永远判成内容稀薄。
+    textHtmlRatio: htmlBytes ? textBytes / htmlBytes : 0,
     paragraphCount: paragraphs,
     listCount: lists,
     tableCount: tables,
@@ -349,9 +362,21 @@ export function buildPageModel(fetched, { targetUrl } = {}) {
     stats: {
       nodes: doc.nodes,
       truncated: doc.truncated,
+      // 资源域名（脚本/样式/图片/iframe）才和 preconnect 有关；
+      // 普通外链的域名不需要预连接，之前两者混在一起，规则就会误报。
+      resourceHosts: [...new Set(
+        [...scripts.map((x) => x.src), ...stylesheets.map((x) => x.href), ...images.map((x) => x.src), ...iframes.map((x) => x.src)]
+          .filter((u) => u && /^https?:/i.test(u))
+          .map((u) => { try { return new URL(u).hostname; } catch { return null; } })
+          .filter((h) => h && h !== safeHostname(finalUrl))
+      )].slice(0, 20),
       externalHosts: [...new Set(links.filter((l) => l.href && !l.internal).map((l) => { try { return new URL(l.href).hostname; } catch { return null; } }).filter(Boolean))].slice(0, 20),
     },
   };
+}
+
+function safeHostname(u) {
+  try { return new URL(u).hostname; } catch { return ''; }
 }
 
 function normalizeForCompare(u) {

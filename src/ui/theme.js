@@ -67,8 +67,12 @@ pre{background:#080c11;border:1px solid var(--line);border-radius:var(--radius-s
 pre code{font-size:12.5px;color:#cbd5e1}
 :not(pre)>code{background:var(--panel-2);padding:2px 6px;border-radius:5px;
   border:1px solid var(--line);color:#a5f3d0}
+.skip-link{position:absolute;left:-9999px;top:0;z-index:60;background:var(--brand);color:#04231b;
+  padding:10px 16px;border-radius:0 0 10px 0;font-weight:700;font-size:13.5px}
+.skip-link:focus{left:0;text-decoration:none}
 footer.site{border-top:1px solid var(--line-soft);padding:26px 0;color:var(--dim);font-size:13px}
-footer.site .wrap{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+footer.site .wrap{display:flex;gap:10px 16px;flex-wrap:wrap;align-items:center}
+footer.site .foot-links{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .grid{display:grid;gap:14px}
 .g2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
 .g3{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}

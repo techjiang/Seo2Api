@@ -1,5 +1,4 @@
 import { layout, esc } from './layout.js';
-import { REPORT_CSS } from './report-css.js';
 
 const STATUS_LABEL = { pass: '通过', warn: '警告', fail: '失败', info: '信息', skip: '跳过' };
 const STATUS_COLOR = { pass: '#22c55e', warn: '#eab308', fail: '#ef4444', info: '#38bdf8', skip: '#64748b' };
@@ -152,7 +151,7 @@ function checksByDimension(dimensions, checks) {
   }).join('');
 }
 
-function factsPanel(page, aux) {
+function factsPanel(page, aux, siteFacts) {
   if (!page) return '';
   const row = (k, v) => `<div class="kv"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></div>`;
   const yesNo = (v) => (v ? '✓ 是' : '✗ 否');
@@ -185,12 +184,12 @@ function factsPanel(page, aux) {
       ${row('缓存头', page.httpCache?.cacheControl ? '已设置' : '未设置')}
     </div>
     <div class="fact"><h3>站点级</h3>
-      ${row('robots.txt', aux?.robots?.exists ? `${aux.robots.ruleCount} 条规则` : '未找到')}
-      ${row('Sitemap', aux?.sitemap ? `${aux.sitemap.urlCount} 个 URL` : '未找到')}
-      ${row('llms.txt', aux?.llmsTxt ? `${aux.llmsTxt.links} 个条目` : '未提供')}
-      ${row('favicon', aux?.favicon?.reachable ? '可访问' : '不可访问')}
-      ${row('HTTP→HTTPS', aux?.httpsRedirect?.redirectsToHttps ? '已跳转' : aux?.httpsRedirect?.redirectsToHttps === false ? '未跳转' : '未检测')}
-      ${row('security.txt', aux?.securityTxt ? '已配置' : '未配置')}
+      ${row('robots.txt', siteFacts ? (aux?.robots?.exists ? `${aux.robots.ruleCount} 条规则` : '未找到') : '快速模式未抓取')}
+      ${row('Sitemap', siteFacts ? (aux?.sitemap ? `${aux.sitemap.urlCount} 个 URL` : '未找到') : '快速模式未抓取')}
+      ${row('llms.txt', siteFacts ? (aux?.llmsTxt ? `${aux.llmsTxt.links} 个条目` : '未提供') : '快速模式未抓取')}
+      ${row('favicon', siteFacts ? (aux?.favicon?.reachable ? '可访问' : '不可访问') : '快速模式未抓取')}
+      ${row('HTTP→HTTPS', !siteFacts ? '快速模式未检测' : aux?.httpsRedirect?.redirectsToHttps ? '已跳转' : aux?.httpsRedirect?.redirectsToHttps === false ? '未跳转' : '未检测')}
+      ${row('security.txt', siteFacts ? (aux?.securityTxt ? '已配置' : '未配置') : '快速模式未抓取')}
       ${row('HSTS', page.securityHeaders?.hsts ? '已启用' : '未启用')}
     </div>
   </div>`;
@@ -203,8 +202,7 @@ export function renderReportPage({ report, cfg, version }) {
   const s = report.summary || {};
   const badgeUrl = `/badge?url=${encodeURIComponent(report.finalUrl || report.url)}`;
 
-  const body = `<style>${REPORT_CSS}</style>
-<div class="score-hero" style="--glow:${color}22">
+  const body = `<div class="score-hero" style="--glow:${color}22">
   ${scoreRing(report.score, report.grade, color)}
   <div class="score-meta">
     <h1>${esc(report.gradeLabel || '检测报告')} · ${fmtNum(report.score)} 分</h1>
@@ -234,7 +232,11 @@ ${radarChart(dims)}
 ${priorityList(report.priority)}
 
 <h2>页面事实</h2>
-${factsPanel(report.page, report.aux)}
+${factsPanel(report.page, report.aux, !report.fast)}
+
+${report.fast ? `<div class="panel" style="margin:0 0 18px">
+  <p class="muted" style="margin:0;font-size:13.5px">快速模式（<code>fast: true</code>）只检测页面内信息，robots.txt / sitemap / llms.txt / favicon 等站点级资源未抓取，相关检查项标记为「信息」而非失败。需要完整结果请去掉 <code>fast</code>。</p>
+</div>` : ''}
 
 <h2>全部检查项</h2>
 <div class="checks">${checksByDimension(dims, checks)}</div>
@@ -256,7 +258,14 @@ ${factsPanel(report.page, report.aux)}
 
   return layout({
     title: `${report.grade} · ${fmtNum(report.score)} 分 · ${report.host || ''}`,
-    description: `${report.finalUrl} 的 SEO 检测结果：总分 ${fmtNum(report.score)}，等级 ${report.grade}。`,
+    description: `${report.finalUrl} 的 SEO 检测报告：总分 ${fmtNum(report.score)}，等级 ${report.grade}（${report.gradeLabel || ''}），共 ${checks.length} 项检查、${s.failCount || 0} 项失败、${s.warnCount || 0} 项警告。`,
     body, cfg, version,
+    path: `/report/${report.id || ''}`,
+    breadcrumb: [
+      { name: '首页', path: '/' },
+      { name: '检测报告', path: `/report/${report.id || ''}` },
+    ],
+    // 报告是一次性产物，不需要被搜索引擎收录，避免与首页争夺索引预算
+    noindex: true,
   });
 }

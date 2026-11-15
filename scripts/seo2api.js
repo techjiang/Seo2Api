@@ -21,6 +21,12 @@ import { VERSION } from '../src/server.js';
 const [cmd, ...args] = process.argv.slice(2);
 const cfg = loadConfig();
 
+// 输出被 head / grep -q 提前关掉时不要抛 EPIPE 堆栈，命令行工具该安静退出
+process.stdout.on('error', (err) => {
+  if (err.code === 'EPIPE') process.exit(0);
+  throw err;
+});
+
 const ok = (s) => console.log(`  ✓ ${s}`);
 const bad = (s) => console.log(`  ✗ ${s}`);
 const info = (s) => console.log(`    ${s}`);
@@ -37,9 +43,9 @@ async function doctor() {
   let problems = 0;
 
   const [major, minor] = process.versions.node.split('.').map(Number);
-  const nodeOk = major > 22 || (major === 22 && minor >= 5);
+  const nodeOk = major > 22 || (major === 22 && minor >= 13);
   console.log('运行时');
-  nodeOk ? ok(`Node.js ${process.versions.node}`) : (problems++, bad(`Node.js ${process.versions.node} 过低，需要 ≥ 22.5.0（node:sqlite 依赖）`));
+  nodeOk ? ok(`Node.js ${process.versions.node}`) : (problems++, bad(`Node.js ${process.versions.node} 过低，需要 ≥ 22.13.0（node:sqlite 从该版本起默认可用）`));
 
   try {
     const { DatabaseSync } = await import('node:sqlite');
@@ -48,7 +54,7 @@ async function doctor() {
   } catch (err) {
     problems++;
     bad(`node:sqlite 不可用：${err.message}`);
-    info('请升级 Node.js，或用 --experimental-sqlite 启动');
+    info('请升级到 Node.js 22.13+ ；更老的 22.x 需要 --experimental-sqlite 才能加载 node:sqlite');
   }
 
   console.log('\n目录与权限');

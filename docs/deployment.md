@@ -122,7 +122,7 @@ curl http://localhost:8787/health
 ```
 
 ```json
-{"ok":true,"status":"healthy","version":"1.0.0","uptimeSeconds":3600,
+{"ok":true,"status":"healthy","version":"1.1.0","uptimeSeconds":3600,
  "database":{"integrity":"ok","bytes":110592,"audits":42}}
 ```
 
