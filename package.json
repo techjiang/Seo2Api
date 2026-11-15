@@ -1,0 +1,21 @@
+{
+  "name": "seo2api",
+  "version": "1.0.0",
+  "description": "Seo2Api — 一个零依赖、可一键备份迁移的网站 SEO 检测与评分 API 系统 / Zero-dependency SEO audit & scoring API",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test test/",
+    "backup": "node scripts/seo2api.js backup",
+    "restore": "node scripts/seo2api.js restore",
+    "doctor": "node scripts/seo2api.js doctor"
+  },
+  "keywords": ["seo", "audit", "api", "aeo", "geo", "zero-dependency"],
+  "license": "MIT",
+  "files": ["server.js", "src", "public", "scripts", "config.example.json"]
+}

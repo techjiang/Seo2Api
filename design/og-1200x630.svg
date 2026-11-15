@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0b0f14"/>
+      <stop offset="1" stop-color="#0f1a22"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="80" y1="80" x2="420" y2="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34e8ac"/>
+      <stop offset=".55" stop-color="#1fd0a2"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="0.15" cy="0.1" r="0.7">
+      <stop offset="0" stop-color="#22d3a5" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#22d3a5" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.9" cy="0.95" r="0.6">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow1)"/>
+  <rect width="1200" height="630" fill="url(#glow2)"/>
+
+  <!-- logo mark -->
+  <g transform="translate(80,96) scale(1.85)">
+    <g fill="none" stroke="url(#brand)" stroke-linecap="round">
+      <circle cx="25.5" cy="25.5" r="15.5" stroke-width="5"/>
+      <path d="M37.2 37.2 50.4 50.4" stroke-width="6.4"/>
+    </g>
+    <g fill="url(#brand)">
+      <rect x="15.6" y="25.6" width="4.4" height="6.4" rx="2.2"/>
+      <rect x="22.4" y="21.4" width="4.4" height="10.6" rx="2.2"/>
+      <rect x="29.2" y="17.2" width="4.4" height="14.8" rx="2.2"/>
+    </g>
+  </g>
+
+  <text x="80" y="392" font-family="'WenQuanYi Zen Hei','Noto Sans SC',-apple-system,'Segoe UI',sans-serif"
+        font-size="88" font-weight="800" fill="#e6edf3" letter-spacing="-2">Seo<tspan fill="#22d3a5">2</tspan>Api</text>
+  <text x="80" y="452" font-family="'WenQuanYi Zen Hei','Noto Sans SC',-apple-system,'Segoe UI',sans-serif"
+        font-size="30" fill="#8b9bab" letter-spacing=".5">网站 SEO 检测与评分 API · 零依赖部署</text>
+
+  <g font-family="'WenQuanYi Zen Hei','Noto Sans SC',-apple-system,'Segoe UI',sans-serif" font-size="22" fill="#5f7183">
+    <rect x="80" y="500" width="152" height="46" rx="10" fill="#121a23" stroke="#1e2a38"/>
+    <text x="156" y="530" text-anchor="middle" fill="#22d3a5" font-weight="700">84 项检查</text>
+    <rect x="248" y="500" width="152" height="46" rx="10" fill="#121a23" stroke="#1e2a38"/>
+    <text x="324" y="530" text-anchor="middle" fill="#22d3a5" font-weight="700">8 个维度</text>
+    <rect x="416" y="500" width="186" height="46" rx="10" fill="#121a23" stroke="#1e2a38"/>
+    <text x="509" y="530" text-anchor="middle" fill="#22d3a5" font-weight="700">0 第三方依赖</text>
+    <rect x="618" y="500" width="176" height="46" rx="10" fill="#121a23" stroke="#1e2a38"/>
+    <text x="706" y="530" text-anchor="middle" fill="#22d3a5" font-weight="700">1 个数据文件</text>
+  </g>
+
+  <!-- decorative score dial -->
+  <g transform="translate(920,300)" opacity=".95">
+    <circle r="150" fill="none" stroke="#1e2a38" stroke-width="3"/>
+    <circle r="150" fill="none" stroke="url(#brand)" stroke-width="12" stroke-linecap="round"
+            stroke-dasharray="942" stroke-dashoffset="212" transform="rotate(-90)"/>
+    <text y="14" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+          font-size="76" font-weight="800" fill="#e6edf3">82</text>
+    <text y="56" text-anchor="middle" font-family="monospace" font-size="22" font-weight="700" fill="#22d3a5">GRADE B</text>
+  </g>
+</svg>

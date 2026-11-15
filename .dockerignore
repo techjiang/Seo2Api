@@ -1,0 +1,9 @@
+.git
+data
+backups
+node_modules
+*.log
+test
+design
+docs
+README.md

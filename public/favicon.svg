@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Seo2Api">
+  <title>Seo2Api</title>
+  <defs>
+    <linearGradient id="seo2api-g" x1="11" y1="9" x2="53" y2="55" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34e8ac"/>
+      <stop offset=".52" stop-color="#1fd0a2"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#seo2api-g)" stroke-linecap="round">
+    <circle cx="25.5" cy="25.5" r="15.5" stroke-width="5"/>
+    <path d="M37.2 37.2 50.4 50.4" stroke-width="6.4"/>
+  </g>
+  <g fill="url(#seo2api-g)">
+    <rect x="15.6" y="25.6" width="4.4" height="6.4" rx="2.2"/>
+    <rect x="22.4" y="21.4" width="4.4" height="10.6" rx="2.2"/>
+    <rect x="29.2" y="17.2" width="4.4" height="14.8" rx="2.2"/>
+  </g>
+</svg>

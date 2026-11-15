@@ -1,0 +1,40 @@
+{
+  "host": "0.0.0.0",
+  "port": 8787,
+  "dataDir": "./data",
+  "publicUrl": "",
+  "logLevel": "info",
+  "auth": {
+    "mode": "key",
+    "adminToken": "",
+    "defaultQuotaPerMin": 60
+  },
+  "rateLimit": {
+    "windowMs": 60000,
+    "max": 60,
+    "burst": 10
+  },
+  "fetch": {
+    "timeoutMs": 12000,
+    "connectTimeoutMs": 6000,
+    "maxBytes": 4194304,
+    "maxRedirects": 5,
+    "concurrencyPerAudit": 4,
+    "userAgent": "Mozilla/5.0 (compatible; Seo2Api/1.0; +https://github.com/seo2api) AppleWebKit/537.36 Chrome/124 Safari/537.36",
+    "fetchAuxiliary": true
+  },
+  "security": {
+    "blockPrivateNetworks": true,
+    "allowHosts": [],
+    "denyHosts": []
+  },
+  "cache": {
+    "ttlMs": 300000,
+    "maxEntries": 512,
+    "contentHashReuse": true
+  },
+  "limits": {
+    "batchMax": 20,
+    "historyMax": 200
+  }
+}

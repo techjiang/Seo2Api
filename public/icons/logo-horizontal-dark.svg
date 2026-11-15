@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80" role="img" aria-label="Seo2Api">
+  <title>Seo2Api</title>
+  <defs>
+    <linearGradient id="mkd" x1="14" y1="16" x2="66" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#12b98f"/><stop offset=".52" stop-color="#0fa885"/><stop offset="1" stop-color="#2596d1"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(6,8)">
+    <g fill="none" stroke="url(#mkd)" stroke-linecap="round">
+      <circle cx="25.5" cy="25.5" r="15.5" stroke-width="5"/>
+      <path d="M37.2 37.2 50.4 50.4" stroke-width="6.4"/>
+    </g>
+    <g fill="url(#mkd)">
+      <rect x="15.6" y="25.6" width="4.4" height="6.4" rx="2.2"/>
+      <rect x="22.4" y="21.4" width="4.4" height="10.6" rx="2.2"/>
+      <rect x="29.2" y="17.2" width="4.4" height="14.8" rx="2.2"/>
+    </g>
+  </g>
+  <text x="86" y="50" font-family="'WenQuanYi Zen Hei',-apple-system,'Segoe UI',sans-serif"
+        font-size="34" font-weight="700" letter-spacing="-1" fill="#0b0f14">Seo<tspan fill="#0fa885">2</tspan>Api</text>
+  <text x="88" y="66" font-family="'WenQuanYi Zen Hei',-apple-system,'Segoe UI',sans-serif"
+        font-size="10.5" letter-spacing="2.6" fill="#5f7183">SEO AUDIT API</text>
+</svg>

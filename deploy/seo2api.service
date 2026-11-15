@@ -1,0 +1,38 @@
+[Unit]
+Description=Seo2Api — 网站 SEO 检测与评分 API
+Documentation=https://github.com/seo2api
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=seo2api
+Group=seo2api
+WorkingDirectory=/opt/seo2api
+ExecStart=/usr/bin/node server.js
+
+Environment=NODE_ENV=production
+Environment=SEO2API_PORT=8787
+Environment=SEO2API_HOST=127.0.0.1
+Environment=SEO2API_DATA_DIR=/opt/seo2api/data
+# 下面三项请改成自己的值
+Environment=SEO2API_PUBLIC_URL=https://seo.example.com
+Environment=SEO2API_AUTH_MODE=key
+Environment=SEO2API_ADMIN_TOKEN=请替换为32位以上随机串
+
+Restart=always
+RestartSec=3
+LimitNOFILE=65535
+
+# 安全加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/seo2api/data
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

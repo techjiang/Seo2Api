@@ -1,0 +1,22 @@
+services:
+  seo2api:
+    build: .
+    image: seo2api:latest
+    container_name: seo2api
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      # 生产环境务必改成自己的随机串
+      SEO2API_ADMIN_TOKEN: ${SEO2API_ADMIN_TOKEN:-change-me-please}
+      SEO2API_AUTH_MODE: ${SEO2API_AUTH_MODE:-key}
+      SEO2API_PUBLIC_URL: ${SEO2API_PUBLIC_URL:-http://localhost:8787}
+      SEO2API_RATE_MAX: "60"
+    volumes:
+      # 整个 data 目录挂出来：数据库、备份都在里面，迁移就是拷这个目录
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
